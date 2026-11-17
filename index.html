@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>いつもの食堂、どこかヘン</title>
+<meta name="description" content="いつもの食堂の、どこかがヘン？　席から店を見回して、異変を見つけたらタップ、なければ「異変なし」。5回連続で正解したらクリア。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="いつもの食堂、どこかヘン">
+<meta property="og:description" content="いつもの食堂の、どこかがヘン？　席から店を見回して、異変を見つけたらタップ、なければ「異変なし」。5回連続で正解したらクリア。">
+<meta property="og:url" content="https://sokora1705-game.github.io/fushigi-shokudo/">
+<meta property="og:image" content="https://sokora1705-game.github.io/fushigi-shokudo/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="いつもの食堂、どこかヘン">
+<meta name="twitter:description" content="いつもの食堂の、どこかがヘン？　席から店を見回して、異変を見つけたらタップ、なければ「異変なし」。5回連続で正解したらクリア。">
+<meta name="twitter:image" content="https://sokora1705-game.github.io/fushigi-shokudo/ogp.png">
+<meta name="theme-color" content="#fdeedb">
+<style>
+:root{ --paper:#fdeedb; --ink:#5a3d2b; --accent:#ff8f86; --ok:#3fae86; --muted:#9a7d68; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--paper);color:var(--ink);overscroll-behavior:none}
+body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#wrap{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+/* 絵本のページのような、細いこげ茶の枠 */
+#frame{position:fixed;inset:10px;border:3px solid var(--ink);pointer-events:none;border-radius:18px;box-shadow:0 0 0 12px var(--paper);transition:inset .9s ease,border-radius .9s ease}
+#frame.open{inset:5px;border-radius:14px}
+
+/* 上の帯 */
+#hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:calc(18px + env(safe-area-inset-top)) 22px 0;pointer-events:none;opacity:0;transition:opacity .5s}
+#hud.show{opacity:1}
+.chip{background:#fffaf2;border:2px solid var(--ink);border-radius:999px;padding:4px 14px;font-weight:bold;font-size:.95rem;box-shadow:0 3px 0 rgba(90,61,43,.25)}
+.chip b{color:var(--accent);font-size:1.15rem}
+
+/* 下のボタン */
+#bottom{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:0 22px calc(22px + env(safe-area-inset-bottom));opacity:0;pointer-events:none;transition:opacity .5s}
+#bottom.show{opacity:1;pointer-events:auto}
+.btn{font:inherit;font-weight:bold;cursor:pointer;border:2px solid var(--ink);border-radius:999px;padding:12px 26px;background:#fffaf2;color:var(--ink);box-shadow:0 4px 0 rgba(90,61,43,.3);font-size:1.05rem}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(90,61,43,.3)}
+.btn.red{background:var(--accent);color:#fff}
+.btn.x{background:#222;color:#fff;text-decoration:none;display:inline-block}
+
+/* パネル */
+.panel{position:fixed;left:50%;transform:translateX(-50%);background:#fffaf2;border:2px solid var(--ink);border-radius:22px;padding:16px 18px;box-shadow:0 6px 0 rgba(90,61,43,.22);text-align:center;width:min(88vw,380px)}
+#caption{top:50%;transform:translate(-50%,-50%)}
+#caption h1{font-size:1.6rem;line-height:1.35;letter-spacing:.04em}
+#caption p{font-size:.92rem;margin-top:8px;line-height:1.7}
+#caption .tap{margin-top:12px;font-weight:bold;color:var(--accent);animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.35}}
+#confirm{bottom:calc(90px + env(safe-area-inset-bottom));display:none}
+#confirm.show{display:block}
+#confirm .row{display:flex;gap:10px;justify-content:center;margin-top:10px}
+#toast{top:50%;transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#toast .big{font-size:2rem;font-weight:900;letter-spacing:.06em}
+#toast .big.ok{color:var(--ok)}#toast .big.ng{color:var(--accent)}
+#toast p{margin-top:6px;font-size:.95rem}
+#hint{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);font-size:.82rem;background:rgba(255,250,242,.92);border:2px solid var(--ink);border-radius:999px;padding:3px 12px;opacity:0;transition:opacity .6s;pointer-events:none;white-space:nowrap}
+#hint.show{opacity:1}
+#clear{top:50%;transform:translate(-50%,-50%);display:none}
+#clear.show{display:block}
+#clear h2{font-size:1.6rem}
+#clear .time{font-size:2.4rem;font-weight:900;color:var(--accent);margin:6px 0}
+#clear .row{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+#flash{position:fixed;inset:0;background:var(--paper);opacity:0;pointer-events:none;transition:opacity .35s}
+#flash.on{opacity:1}
+#err{display:none}
+#practice{top:calc(64px + env(safe-area-inset-top));display:none;padding:10px 14px}
+#practice.show{display:block}
+#practice b{font-size:1.02rem}
+#practice p{font-size:.84rem;margin-top:4px;line-height:1.5}
+</style>
+<script type="importmap">{"imports":{
+  "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="wrap"></div>
+<div id="frame"></div>
+
+<div id="hud"><span class="chip" id="stageChip">その <b id="stage">1</b> / 5</span><span class="chip" id="timer">0:00</span></div>
+
+<div class="panel" id="caption">
+  <h1>いつもの食堂、<br>どこかヘン</h1>
+  <p>いつもの席から、店の中を見回そう。<br>最初は下見。いつもの店をおぼえておこう。<br>本番は毎回、<b>異変がひとつだけ</b>あるか、<b>何もない</b>。<br>異変を見つけたら、その場所をタップ。<br>ないと思ったら「異変なし」。<br><b>5回連続</b>で正解したらクリア。</p>
+  <div class="tap">― タップして、店に入る ―</div>
+</div>
+
+<div id="hint">ドラッグで見回せる</div>
+<div class="panel" id="practice"><b>まずは、いつもの食堂をよく見ておこう</b><p>この回は下見なので、数に入りません。<br>見おわったら「異変なし」で本番スタート。</p></div>
+<div class="panel" id="confirm"><div><b>ここが異変？</b></div><div class="row"><button class="btn" id="cancel">やめる</button><button class="btn red" id="ok">ここだ！</button></div></div>
+<div class="panel" id="toast"><div class="big" id="toastBig"></div><p id="toastText"></p></div>
+<div class="panel" id="clear">
+  <h2>ごちそうさま！</h2>
+  <p>5回連続で異変を見ぬいた</p>
+  <div class="time" id="clearTime"></div>
+  <p id="clearSub" style="font-size:.9rem"></p>
+  <div class="row"><a class="btn x" id="share" target="_blank" rel="noopener">𝕏 記録をシェア</a><button class="btn red" id="again">もういちど</button></div>
+</div>
+<div id="bottom"><button class="btn" id="none">異変なし</button></div>
+<div id="flash"></div>
+<div class="panel" id="err"><b>3Dの読みこみに失敗しました</b><p style="margin-top:6px;font-size:.9rem">ネットにつながっているか確かめて、再読みこみしてください。</p></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* =========================================================
+   描画の準備（スマホで重くならないよう、画素比・形の細かさ・影は控えめ）
+   ========================================================= */
+const wrap = document.getElementById('wrap');
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'low-power'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setClearColor(0xfde8cf);
+wrap.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(26, 1, 0.05, 60);
+camera.rotation.order = 'YXZ';
+
+// 夕方のあたたかい光
+scene.add(new THREE.HemisphereLight(0xfff3e2, 0xe8c4ae, 1.55));
+const sun = new THREE.DirectionalLight(0xffc48a, 0.95); sun.position.set(4, 3, 2.5); scene.add(sun);
+
+// やわらかいトゥーンの陰影（3段階）
+const grad = new THREE.DataTexture(new Uint8Array([175, 220, 255]), 3, 1, THREE.RedFormat);
+grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
+const mats = {};
+const toon = c => mats[c] || (mats[c] = new THREE.MeshToonMaterial({color:c, gradientMap:grad}));
+const flat = c => mats['f'+c] || (mats['f'+c] = new THREE.MeshBasicMaterial({color:c}));
+
+// 細いこげ茶のふち線
+const INK = 0x5a3d2b, T = 0.012;
+const lineBox = new THREE.MeshBasicMaterial({color:INK, side:THREE.BackSide});
+const lineSmooth = new THREE.MeshBasicMaterial({color:INK, side:THREE.BackSide});
+lineSmooth.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed += normal * 0.012;'); };
+function mk(geo, color, outline=true){
+  const m = new THREE.Mesh(geo, toon(color));
+  if (outline){
+    // 角の丸い箱は中身が BoxGeometry(1,1,1) 扱いなので、ふくらませる方式でふち線を作る
+    if (geo.type === 'BoxGeometry' && !(geo instanceof RoundedBoxGeometry)){ const p = geo.parameters; m.add(new THREE.Mesh(new THREE.BoxGeometry(p.width+T*2, p.height+T*2, p.depth+T*2), lineBox)); }
+    else m.add(new THREE.Mesh(geo, lineSmooth));
+  }
+  return m;
+}
+const place = (m,x,y,z,parent) => { m.position.set(x,y,z); parent.add(m); return m; };
+const box  = (w,h,d,c,x,y,z,parent,ol=true) => place(mk(new THREE.BoxGeometry(w,h,d), c, ol), x,y,z,parent);
+const rbox = (w,h,d,c,x,y,z,parent,r=0.06) => place(mk(new RoundedBoxGeometry(w,h,d,2,Math.min(r, Math.min(w,h,d)/2-0.001)), c), x,y,z,parent);
+const cyl  = (rt,rb,h,c,x,y,z,parent,seg=12) => place(mk(new THREE.CylinderGeometry(rt,rb,h,seg), c), x,y,z,parent);
+const ball = (r,c,x,y,z,parent,ol=true,seg=10) => place(mk(new THREE.SphereGeometry(r, seg, Math.max(6,seg*0.7|0)), c, ol), x,y,z,parent);
+const dot  = (r,c,x,y,z,parent) => place(new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), flat(c)), x,y,z,parent);
+function arc(r, tube, c, x,y,z, parent, rotZ){   // 目・口に使う、小さな弧
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 4, 10, Math.PI), flat(c));
+  m.position.set(x,y,z); m.rotation.z = rotZ; parent.add(m); return m;
+}
+
+function canvasTex(w, h, draw){
+  const c = document.createElement('canvas'); c.width=w; c.height=h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function tagTex(name){
+  return canvasTex(128, 384, (g,w,h) => {
+    g.fillStyle='#fff8ec'; g.fillRect(0,0,w,h);
+    g.strokeStyle='#5a3d2b'; g.lineWidth=5; g.strokeRect(6,6,w-12,h-12);
+    g.fillStyle='#5a3d2b'; g.textAlign='center'; g.textBaseline='middle';
+    const size = name.length>4 ? 52 : 62; g.font=`bold ${size}px "Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif`;
+    const chars=[...name], step=(h-44)/chars.length; chars.forEach((ch,i)=>g.fillText(ch, w/2, 22+step*(i+.5)));
+  });
+}
+const FLOOR_TEX = (() => { const t = canvasTex(64, 64, g => { g.fillStyle='#fff3df'; g.fillRect(0,0,64,64); g.fillStyle='#bfe6d4'; g.fillRect(0,0,32,32); g.fillRect(32,32,32,32); });
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(9,10); t.magFilter=THREE.NearestFilter; return t; })();
+const SOUP_TEX = canvasTex(128, 128, (g) => {
+  g.fillStyle='#f6c776'; g.beginPath(); g.arc(64,64,64,0,Math.PI*2); g.fill();
+  g.fillStyle='#3f5a3a'; g.fillRect(70,18,30,44);                                          // のり
+  g.fillStyle='#ffffff'; g.beginPath(); g.arc(42,52,22,0,Math.PI*2); g.fill();             // ナルト
+  g.strokeStyle='#ff8fae'; g.lineWidth=4; g.beginPath(); for(let a=0;a<Math.PI*5;a+=0.2){ const r=2+a*1.15; g.lineTo(42+Math.cos(a)*r, 52+Math.sin(a)*r); } g.stroke();
+  g.fillStyle='#ffffff'; g.beginPath(); g.ellipse(78,88,20,15,0,0,Math.PI*2); g.fill();   // たまご
+  g.fillStyle='#ffb43c'; g.beginPath(); g.arc(78,88,9,0,Math.PI*2); g.fill();
+  g.fillStyle='#7cc46a'; [[34,92],[44,100],[28,82],[52,90],[100,64],[96,56]].forEach(([x,y])=>{ g.beginPath(); g.arc(x,y,4,0,Math.PI*2); g.fill(); });
+});
+const SKY_TEX = canvasTex(64, 128, (g,w,h) => {
+  const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,'#ffb08a'); gr.addColorStop(.6,'#ffd59a'); gr.addColorStop(1,'#ffe9c2');
+  g.fillStyle=gr; g.fillRect(0,0,w,h); g.fillStyle='#fff3c8'; g.beginPath(); g.arc(40,92,14,0,Math.PI*2); g.fill();
+  g.fillStyle='rgba(255,255,255,.8)'; g.beginPath(); g.ellipse(18,40,14,5,0,0,Math.PI*2); g.fill();
+});
+const SOUP_PLAIN = canvasTex(128, 128, (g) => {   // ナルトがない版
+  g.fillStyle='#f6c776'; g.beginPath(); g.arc(64,64,64,0,Math.PI*2); g.fill();
+  g.fillStyle='#3f5a3a'; g.fillRect(70,18,30,44);
+  g.fillStyle='#ffffff'; g.beginPath(); g.ellipse(78,88,20,15,0,0,Math.PI*2); g.fill();
+  g.fillStyle='#ffb43c'; g.beginPath(); g.arc(78,88,9,0,Math.PI*2); g.fill();
+  g.fillStyle='#7cc46a'; [[34,92],[44,100],[28,82],[52,90],[100,64],[96,56]].forEach(([x,y])=>{ g.beginPath(); g.arc(x,y,4,0,Math.PI*2); g.fill(); });
+});
+const NIGHT_TEX = canvasTex(64, 128, (g,w,h) => {   // 夜空
+  const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,'#2b2f5e'); gr.addColorStop(1,'#4a4f86');
+  g.fillStyle=gr; g.fillRect(0,0,w,h); g.fillStyle='#fff6c8'; g.beginPath(); g.arc(42,34,11,0,Math.PI*2); g.fill();
+  g.fillStyle='#4a4f86'; g.beginPath(); g.arc(37,30,10,0,Math.PI*2); g.fill();
+  g.fillStyle='#fff6c8'; [[14,20],[22,70],[50,90],[10,104],[54,60]].forEach(([x,y])=>g.fillRect(x,y,2,2));
+});
+const HATENA_TEX = tagTex('？？？');
+const ZZZ_TEX = canvasTex(128, 64, (g) => { g.fillStyle='#5a3d2b'; g.font='bold 30px sans-serif'; g.fillText('z', 10, 54); g.font='bold 24px sans-serif'; g.fillText('z', 44, 36); g.font='bold 18px sans-serif'; g.fillText('z', 72, 20); });
+
+/* =========================================================
+   ちびキャラのお客さん（2〜3頭身）
+   ========================================================= */
+const SKIN = '#ffe2cf';
+function chibi(parent, {x, z, face, body, hair, hat, bun}){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = face; parent.add(g);
+  const b = ball(0.21, body, 0, 0.68, 0, g); b.scale.set(1, 0.95, 0.88);          // まるい体
+  ball(0.065, SKIN, -0.19, 0.66, 0.14, g); ball(0.065, SKIN, 0.19, 0.66, 0.14, g);  // 小さな丸い手
+  ball(0.27, SKIN, 0, 1.08, 0, g, true, 14);                                       // 大きな頭
+  const hr = place(mk(new THREE.SphereGeometry(0.285, 14, 6, 0, Math.PI*2, 0, Math.PI*0.48), hat || hair), 0, 1.1, -0.01, g);
+  hr.rotation.x = -0.32;
+  if (hat){ const br = rbox(0.3, 0.03, 0.16, hat, 0, 1.2, 0.24, g, 0.014); br.rotation.x = 0.25; }
+  if (bun) ball(0.1, hair, 0, 1.4, -0.08, g);
+  g.userData.eyes = []; g.userData.shut = [];
+  [-1, 1].forEach(s => {
+    const e = dot(0.048, 0x3a2a22, s*0.09, 1.07, 0.245, g); e.scale.z = 0.5;     // 黒丸の目
+    const hl = dot(0.017, 0xffffff, s*0.09+0.016, 1.09, 0.268, g);                   // 白いハイライト
+    const sh = arc(0.035, 0.008, 0x3a2a22, s*0.09, 1.065, 0.255, g, 0); sh.visible = false;   // つぶった目
+    g.userData.eyes.push(e, hl); g.userData.shut.push(sh);
+    const c = dot(0.042, 0xff9fb2, s*0.165, 1.0, 0.2, g); c.scale.set(1, 0.62, 0.35); // ピンクのほっぺ
+  });
+  arc(0.028, 0.007, 0x8a4a3a, 0, 0.975, 0.245, g, Math.PI);                         // にっこり口
+  return g;
+}
+
+/* ---- 可愛い小物 ---- */
+function sleepyCat(parent, x, y, z, rotY){
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; parent.add(g);
+  const body = ball(0.15, '#ffcf9a', 0, 0.08, 0, g); body.scale.set(1.35, 0.62, 0.95);
+  ball(0.115, '#ffcf9a', 0.2, 0.1, 0.04, g);
+  [-1, 1].forEach(s => { const ear = place(mk(new THREE.ConeGeometry(0.04, 0.07, 6), '#ffcf9a'), 0.2+s*0.06, 0.2, 0.04, g); ear.rotation.z = -s*0.25; });
+  g.userData.closed = []; g.userData.open = [];
+  [-1, 1].forEach(s => { g.userData.closed.push(arc(0.02, 0.005, 0x5a3d2b, 0.2+s*0.042, 0.1, 0.15, g, Math.PI));   // 閉じた目
+    const o = dot(0.024, 0x3a2a22, 0.2+s*0.042, 0.11, 0.14, g); o.scale.z = 0.5; o.visible = false; g.userData.open.push(o); });   // あいた目
+  const nose = dot(0.012, 0xff8fae, 0.2, 0.075, 0.155, g);
+  const tail = place(mk(new THREE.TorusGeometry(0.12, 0.028, 6, 10, Math.PI*0.9), '#ffcf9a'), -0.12, 0.02, 0.04, g); tail.rotation.x = -Math.PI/2;
+  ball(0.04, '#ffffff', -0.05, 0.13, 0.11, g, false, 8).scale.set(1.4, 0.6, 0.6);         // ぶち
+  const z1 = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.12), new THREE.MeshBasicMaterial({map:ZZZ_TEX, transparent:true, depthWrite:false}));
+  z1.position.set(0.3, 0.32, 0.05); g.add(z1);
+  g.userData.zzz = z1;
+  return g;
+}
+function maneki(parent, x, y, z){
+  const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
+  const b = ball(0.13, '#fffaf2', 0, 0.13, 0, g); b.scale.set(1, 1.05, 0.9);
+  ball(0.12, '#fffaf2', 0, 0.33, 0.01, g);
+  [-1, 1].forEach(s => { const ear = place(mk(new THREE.ConeGeometry(0.04, 0.07, 6), '#fffaf2'), s*0.07, 0.44, 0, g); ear.rotation.z = -s*0.3;
+    dot(0.018, 0x3a2a22, s*0.045, 0.34, 0.11, g); dot(0.025, 0xff9fb2, s*0.075, 0.3, 0.095, g).scale.set(1,0.6,0.4); });
+  arc(0.018, 0.005, 0x8a4a3a, 0, 0.305, 0.118, g, Math.PI);
+  place(mk(new THREE.TorusGeometry(0.085, 0.018, 6, 14), '#ff8f86'), 0, 0.23, 0.01, g).rotation.x = Math.PI/2;
+  ball(0.026, '#ffd34d', 0, 0.21, 0.1, g);
+  ball(0.05, '#ffe9a8', 0, 0.1, 0.11, g).scale.set(1.2, 0.9, 0.5);                  // 小判
+  // 上げている手と、下ろしている手（左右どちらを上げるかで異変になる）
+  const up = s => { const a = new THREE.Group(); a.position.set(s*0.14, 0.24, 0.03); a.rotation.z = -s*0.5; g.add(a);
+    const arm = place(mk(new THREE.CapsuleGeometry(0.035, 0.1, 3, 8), '#fffaf2'), 0, 0.03, 0, a); ball(0.045, '#fffaf2', 0, 0.12, 0, a); dot(0.016, 0xff9fb2, 0, 0.12, 0.04, a); return a; };
+  const down = s => ball(0.045, '#fffaf2', s*0.07, 0.17, 0.1, g);
+  g.userData.upR = up(1);  g.userData.downL = down(-1);
+  g.userData.upL = up(-1); g.userData.downR = down(1);
+  return g;
+}
+function faceLantern(parent, x, y, z, rotY){
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; parent.add(g);
+  const body = ball(0.26, '#ff9d8a', 0, 0, 0, g, true, 14); body.scale.y = 1.25; g.userData.body = body;
+  cyl(0.13, 0.13, 0.06, '#7a5138', 0, 0.33, 0, g, 10); cyl(0.13, 0.13, 0.06, '#7a5138', 0, -0.33, 0, g, 10);
+  box(0.015, 0.35, 0.015, '#5a3d2b', 0, 0.53, 0, g, false);
+  [-1, 1].forEach(s => { dot(0.03, 0x3a2a22, s*0.085, 0.05, 0.245, g).scale.z=0.5; dot(0.01, 0xffffff, s*0.085+0.01, 0.065, 0.257, g);
+    dot(0.035, 0xffd0d6, s*0.15, -0.03, 0.215, g).scale.set(1,0.6,0.35); });
+  g.userData.smile = arc(0.045, 0.01, 0x5a3d2b, 0, -0.04, 0.245, g, Math.PI);       // にっこり
+  g.userData.flatMouth = box(0.07, 0.014, 0.01, '#5a3d2b', 0, -0.06, 0.25, g, false); // 笑っていない口
+  g.userData.flatMouth.visible = false;
+  return g;
+}
+function chair(parent, x, z, rotY){
+  const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rotY; parent.add(g);
+  rbox(0.44,0.08,0.42,'#f2c08e',0,0.46,0,g,0.035); rbox(0.44,0.42,0.07,'#f2c08e',0,0.72,-0.19,g,0.035);
+  [[-.16,-.16],[.16,-.16],[-.16,.16],[.16,.16]].forEach(([a,b])=>cyl(0.025,0.025,0.42,'#d9a274',a,0.21,b,g,6));
+  return g;
+}
+
+/* =========================================================
+   店（mirror=true のときは鏡の中のコピー：左の壁と湯気・当たり判定は作らない）
+   ========================================================= */
+const W = 4, BACK = -3, FRONT = 6, H = 3.2;
+const MIR = {z0:-1.55, z1:-0.25, y0:1.0, y1:2.0};   // 鏡の位置（左の壁）
+const SEAT = new THREE.Vector3(0, 1.5, 1.85);
+const hits = [];
+function hitBox(id, w,h,d, x,y,z, parent){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshBasicMaterial({visible:false}));
+  m.position.set(x,y,z); m.userData.hit = id; parent.add(m); hits.push(m); return m;
+}
+const faceSeat = (x, z) => Math.atan2(SEAT.x - x, SEAT.z - z);   // 席のほうを向く角度
+
+function buildShop(root, mirror){
+  const R = {};
+  // 床・天井・壁
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(W*2, 0.1, FRONT-BACK), new THREE.MeshToonMaterial({map:FLOOR_TEX, gradientMap:grad}));
+  floor.position.set(0, -0.05, (FRONT+BACK)/2); root.add(floor);
+  place(new THREE.Mesh(new THREE.BoxGeometry(W*2, 0.1, FRONT-BACK), flat(0xffe6c8)), 0, H+0.05, (FRONT+BACK)/2, root);
+  box(W*2, H, 0.1, '#fff1dc', 0, H/2, BACK-0.05, root, false);
+  box(W*2, 1.0, 0.12, '#b8e3d0', 0, 0.5, BACK, root, false);
+  box(0.1, H, FRONT-BACK, '#fff1dc', W+0.05, H/2, (FRONT+BACK)/2, root, false);
+  box(0.12, 1.0, FRONT-BACK, '#b8e3d0', W, 0.5, (FRONT+BACK)/2, root, false);
+  // 部屋のかどの細い線
+  const ln = (x,y,z,w,h,d) => place(new THREE.Mesh(new THREE.BoxGeometry(w,h,d), flat(INK)), x,y,z,root);
+  [[0,H,BACK,W*2,.025,.025],[0,0.01,BACK,W*2,.025,.025],[W,H/2,BACK,.025,H,.025],[-W,H/2,BACK,.025,H,.025],
+   [W,H,(FRONT+BACK)/2,.025,.025,FRONT-BACK],[W,0.01,(FRONT+BACK)/2,.025,.025,FRONT-BACK],
+   [-W,H,(FRONT+BACK)/2,.025,.025,FRONT-BACK],[-W,0.01,(FRONT+BACK)/2,.025,.025,FRONT-BACK],
+   [0,1.0,BACK+0.065,W*2,.02,.02],[W-0.065,1.0,(FRONT+BACK)/2,.02,.02,FRONT-BACK]].forEach(a=>ln(...a));
+  // 天井のはり（まるい木）
+  rbox(W*2, 0.16, 0.2, '#e9b88a', 0, H-0.08, 0.2, root, 0.06); rbox(W*2, 0.16, 0.2, '#e9b88a', 0, H-0.08, 3.2, root, 0.06);
+
+  // 右の壁の窓（夕焼け）
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.0), new THREE.MeshBasicMaterial({map:SKY_TEX}));
+  sky.rotation.y = -Math.PI/2; sky.position.set(W-0.01, 1.9, 0.9); root.add(sky); R.sky = sky;
+  if (!mirror) hitBox('window', 0.25, 1.35, 1.65, W-0.1, 1.9, 0.9, root);
+  rbox(0.1, 0.1, 1.5, '#f6c6d0', W-0.04, 2.45, 0.9, root, 0.04); rbox(0.1, 0.1, 1.5, '#f6c6d0', W-0.04, 1.35, 0.9, root, 0.04);
+  rbox(0.1, 1.2, 0.1, '#f6c6d0', W-0.04, 1.9, 0.2, root, 0.04); rbox(0.1, 1.2, 0.1, '#f6c6d0', W-0.04, 1.9, 1.6, root, 0.04);
+  rbox(0.06, 1.0, 0.05, '#f6c6d0', W-0.03, 1.9, 0.9, root, 0.02);
+
+  // 厨房の台と、まるい鍋
+  rbox(7.4, 0.9, 0.6, '#dfe9ec', 0, 0.45, BACK+0.35, root, 0.08);
+  R.pot = new THREE.Group(); root.add(R.pot);
+  cyl(0.26, 0.23, 0.32, '#c9d6dc', -2.6, 1.06, BACK+0.35, R.pot); ball(0.05, '#c9d6dc', -2.6, 1.25, BACK+0.35, R.pot);
+  if (!mirror) hitBox('pot', 0.7, 0.75, 0.6, -2.6, 1.2, BACK+0.4, root);
+  cyl(0.28, 0.28, 0.1, '#7a6a66', 1.6, 0.95, BACK+0.35, root, 14);
+  cyl(0.12, 0.14, 0.2, '#b8e3d0', 2.6, 1.0, BACK+0.35, root, 10);
+
+  // 招き猫（厨房の台の上）
+  R.maneki = maneki(root, -0.9, 0.9, BACK+0.38); R.maneki.scale.setScalar(1.7);
+  if (!mirror) hitBox('maneki', 0.75, 1.0, 0.5, -0.9, 1.35, BACK+0.42, root);
+
+  // メニュー札（縦書き）
+  const MENU = ['らーめん','ぎょうざ','ちゃーはん','かれー','おでん','かつどん'];
+  R.tags = MENU.map((name, k) => {
+    const x = 0.15 + k*0.5;
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 1.0), new THREE.MeshBasicMaterial({map:tagTex(name)})); tag.userData.map = tag.material.map;
+    tag.position.set(x, 2.3, BACK+0.02); root.add(tag);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(0.39, 1.03), flat(INK)); back.position.set(x, 2.3, BACK+0.015); root.add(back);
+    if (!mirror) hitBox('tag'+k, 0.46, 1.1, 0.2, x, 2.3, BACK+0.1, root);
+    return tag;
+  });
+
+  // ねこ耳のかけ時計
+  const clock = new THREE.Group(); clock.position.set(-1.7, 2.35, BACK+0.06); root.add(clock);
+  place(mk(new THREE.CylinderGeometry(0.34, 0.34, 0.06, 20), '#fffaf2'), 0,0,0, clock).rotation.x = Math.PI/2;
+  place(mk(new THREE.TorusGeometry(0.34, 0.04, 6, 20), '#f6a5b5'), 0,0,0.03, clock);
+  R.clockEars = [-1, 1].map(s => { const ear = place(mk(new THREE.ConeGeometry(0.09, 0.14, 6), '#f6a5b5'), s*0.22, 0.34, 0.0, clock); ear.rotation.z = -s*0.45; return ear; });
+  for (let i=0;i<12;i++){ const a=i/12*Math.PI*2; const d=new THREE.Mesh(new THREE.SphereGeometry(i%3?0.012:0.022, 6, 4), flat(INK)); d.position.set(Math.sin(a)*0.26, Math.cos(a)*0.26, 0.04); clock.add(d); }
+  const hand = (len, wid, col, z) => { const p=new THREE.Group(); p.position.z=z; const m=new THREE.Mesh(new THREE.BoxGeometry(wid, len, 0.012), flat(col)); m.position.y=len/2-0.03; p.add(m); clock.add(p); return p; };
+  R.hHour = hand(0.17, 0.035, INK, 0.045); R.hMin = hand(0.25, 0.025, INK, 0.05); R.hSec = hand(0.28, 0.012, 0xff7a70, 0.056);
+  R.hHour.rotation.z = -2.1; R.hMin.rotation.z = -4.4;
+  dot(0.03, 0xff7a70, 0, 0, 0.06, clock);
+  if (!mirror) hitBox('clock', 0.9, 0.95, 0.3, -1.7, 2.4, BACK+0.15, root);
+
+  // 顔のついたちょうちん（席のほうを向いている）
+  R.lantern = faceLantern(root, 2.7, 2.5, -0.4, faceSeat(2.7, -0.4));
+  if (!mirror) hitBox('lantern', 0.65, 0.85, 0.65, 2.7, 2.5, -0.4, root);
+
+  // カウンター（目の前）
+  rbox(7.2, 0.86, 0.55, '#f3c99b', 0, 0.43, 0.75, root, 0.08);
+  rbox(7.4, 0.07, 0.74, '#ffb7a1', 0, 0.895, 0.78, root, 0.03);
+  [-1.1, 0, 1.1, 2.2].forEach(x => { ball(0.2, '#ffc9d6', x, 0.64, 1.5, root).scale.set(1, 0.35, 1); cyl(0.035, 0.035, 0.6, '#d9a274', x, 0.3, 1.5, root, 6); });
+
+  // ナルトの入ったどんぶり
+  cyl(0.16, 0.1, 0.12, '#fffaf2', 0, 0.98, 0.68, root, 16);
+  place(mk(new THREE.TorusGeometry(0.16, 0.012, 4, 18), '#ff9fb2'), 0, 1.035, 0.68, root).rotation.x = Math.PI/2;
+  const soup = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), new THREE.MeshBasicMaterial({map:SOUP_TEX})); soup.rotation.x=-Math.PI/2; soup.position.set(0,1.047,0.68); root.add(soup); R.soup = soup;
+  rbox(0.022, 0.022, 0.34, '#e9b88a', 0.13, 1.06, 0.62, root, 0.01).rotation.y = 0.3;
+  rbox(0.022, 0.022, 0.34, '#e9b88a', 0.16, 1.06, 0.62, root, 0.01).rotation.y = 0.25;
+  R.shoyu = new THREE.Group(); R.shoyu.position.set(-0.75, 0.99, 0.75); root.add(R.shoyu);                                  // しょうゆさし
+  cyl(0.045, 0.05, 0.14, '#ff8f86', 0, 0, 0, R.shoyu, 8); ball(0.03, '#ff8f86', 0, 0.08, 0, R.shoyu, true, 8); cyl(0.012, 0.012, 0.05, '#ff8f86', 0.03, 0.1, 0, R.shoyu, 6).rotation.z = -0.9;
+  if (!mirror) hitBox('shoyu', 0.3, 0.34, 0.3, -0.75, 1.03, 0.75, root);
+  cyl(0.06, 0.05, 0.12, '#b8e3d0', 0.85, 0.98, 0.8, root, 10);                                                          // 湯のみ
+
+  // カウンターで寝ている看板猫（異変のときは2匹に）
+  R.cat = sleepyCat(root, -1.35, 0.93, 0.78, 0.15);
+  R.cat2 = sleepyCat(root, 1.4, 0.93, 0.78, -0.35);
+  if (!mirror){ hitBox('cat', 0.6, 0.28, 0.45, -1.35, 1.05, 0.8, root); hitBox('cat', 0.6, 0.28, 0.45, 1.4, 1.05, 0.8, root); }
+
+  // 左のテーブル：お客さんA（鏡に映る）
+  rbox(0.9, 0.07, 0.8, '#f2c79a', -2.4, 0.76, -1.5, root, 0.03); cyl(0.05, 0.06, 0.74, '#d9a274', -2.4, 0.37, -1.5, root, 8);
+  chair(root, -3.1, -1.5, Math.PI/2);
+  R.custA = chibi(root, {x:-3.05, z:-1.5, face:Math.PI/2, body:'#a9cff2', hair:'#7a523e'});
+  cyl(0.14, 0.09, 0.1, '#fffaf2', -2.25, 0.84, -1.5, root, 12);
+  if (!mirror) hitBox('custA', 0.8, 1.6, 0.8, -3.05, 0.8, -1.5, root);
+
+  // 右のテーブル：お客さんB と、ふえるかもしれない席
+  rbox(1.0, 0.07, 0.8, '#f2c79a', 2.6, 0.76, -1.5, root, 0.03); cyl(0.05, 0.06, 0.74, '#d9a274', 2.6, 0.37, -1.5, root, 8);
+  chair(root, 3.3, -1.5, -Math.PI/2); chair(root, 1.9, -1.5, Math.PI/2);
+  R.custB = chibi(root, {x:3.25, z:-1.5, face:-Math.PI/2, body:'#bfe6a8', hair:'#5a3d2b', hat:'#ffb3b3'});
+  R.extra = chibi(root, {x:1.95, z:-1.5, face:Math.PI/2, body:'#f7bfd9', hair:'#6a4a6e', bun:true});
+  cyl(0.06, 0.05, 0.12, '#b8e3d0', 2.85, 0.85, -1.4, root, 10);
+  if (!mirror){ hitBox('custB', 0.8, 1.6, 0.8, 3.25, 0.8, -1.5, root); hitBox('extra', 0.8, 1.6, 0.8, 1.95, 0.8, -1.5, root); }
+
+  // 湯気（鏡の中には作らない）
+  if (!mirror){
+    const tex = canvasTex(64, 64, g => { g.fillStyle='#ffffff'; g.beginPath(); g.arc(32,32,24,0,Math.PI*2); g.fill(); g.strokeStyle='#c8a08a'; g.lineWidth=3; g.stroke(); });
+    const pg = new THREE.PlaneGeometry(1, 1);
+    R.steam = Array.from({length:9}, (_,i) => { const s=new THREE.Mesh(pg, new THREE.MeshBasicMaterial({map:tex, transparent:true, depthWrite:false})); s.renderOrder=5; s.userData.t=i/9; s.userData.off=Math.random()*6; root.add(s); return s; });
+    hitBox('bowl', 0.5, 0.55, 0.75, 0, 1.175, 0.75, root);   // どんぶりと湯気の柱
+    hitBox('bowl', 1.0, 0.16, 0.75, 0, 0.97, 0.78, root);    // カウンターの上（下に流れた湯気）
+  }
+  return R;
+}
+
+// 本物の店
+const shop = new THREE.Group(); scene.add(shop);
+const A = buildShop(shop, false);
+// 左の壁（鏡の穴をあける）
+(function leftWall(){
+  const x = -W-0.05, zc = (a,b)=>(a+b)/2;
+  box(0.1, H, MIR.z0-BACK, '#fff1dc', x, H/2, zc(BACK,MIR.z0), shop, false);
+  box(0.1, H, FRONT-MIR.z1, '#fff1dc', x, H/2, zc(MIR.z1,FRONT), shop, false);
+  box(0.1, MIR.y0, MIR.z1-MIR.z0, '#fff1dc', x, MIR.y0/2, zc(MIR.z0,MIR.z1), shop, false);
+  box(0.1, H-MIR.y1, MIR.z1-MIR.z0, '#fff1dc', x, (H+MIR.y1)/2, zc(MIR.z0,MIR.z1), shop, false);
+  box(0.12, 1.0, FRONT-BACK, '#b8e3d0', -W, 0.5, (FRONT+BACK)/2, shop, false);
+  // 鏡のわく（まるいピンク）
+  const zc2 = zc(MIR.z0,MIR.z1), w = MIR.z1-MIR.z0, h = MIR.y1-MIR.y0;
+  rbox(0.1, 0.1, w+0.2, '#f6c6d0', -W+0.03, MIR.y1+0.05, zc2, shop, 0.045); rbox(0.1, 0.1, w+0.2, '#f6c6d0', -W+0.03, MIR.y0-0.05, zc2, shop, 0.045);
+  rbox(0.1, h, 0.1, '#f6c6d0', -W+0.03, (MIR.y0+MIR.y1)/2, MIR.z0-0.05, shop, 0.045); rbox(0.1, h, 0.1, '#f6c6d0', -W+0.03, (MIR.y0+MIR.y1)/2, MIR.z1+0.05, shop, 0.045);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({color:0xd8f0ee, transparent:true, opacity:0.2, depthWrite:false}));
+  glass.rotation.y = Math.PI/2; glass.position.set(-W+0.01, (MIR.y0+MIR.y1)/2, zc2); shop.add(glass);
+  hitBox('mirror', 0.2, h+0.2, w+0.2, -W+0.05, (MIR.y0+MIR.y1)/2, zc2, shop);
+})();
+// 鏡の中（左右反転したコピー）
+const mirrorWorld = new THREE.Group(); mirrorWorld.scale.x = -1; mirrorWorld.position.x = -W*2; scene.add(mirrorWorld);
+const B = buildShop(mirrorWorld, true);
+
+/* =========================================================
+   異変
+   ========================================================= */
+// hit：正解になるタップの場所（書いていなければ異変の名前と同じ。'tag' は札の番号つき）
+const ANOMS = {
+  // わかりやすい
+  extra:    {text:'お客さんが1人ふえていた（右のテーブル）'},
+  cat:      {text:'看板猫が、2匹にふえていた'},
+  window:   {text:'窓の外が、夜になっていた'},
+  lanternB: {text:'ちょうちんが、青くなっていた', hit:'lantern'},
+  stare:    {text:'右のお客さんが、こっちを見ていた', hit:'custB'},
+  manekiB:  {text:'招き猫が、うしろを向いていた', hit:'maneki'},
+  // ふつう
+  clock:    {text:'時計の針が、逆向きに回っていた'},
+  steam:    {text:'どんぶりの湯気が、下に流れていた', hit:'bowl'},
+  mirror:   {text:'鏡に映る席に、だれもいなかった'},
+  lantern:  {text:'ちょうちんの顔が、笑っていなかった'},
+  hatena:   {text:'メニュー札に「？？？」が1枚まじっていた', hit:'tag'},
+  shoyu:    {text:'しょうゆさしが、さかさまだった'},
+  catEyes:  {text:'看板猫が、目をあけていた', hit:'cat'},
+  // 気づきにくい
+  tag:      {text:'メニュー札が1枚だけ、さかさまだった', hit:'tag'},
+  maneki:   {text:'招き猫の上げている手が、いつもと逆だった'},
+  naruto:   {text:'どんぶりのナルトが、なくなっていた', hit:'bowl'},
+  clockEar: {text:'時計のねこ耳が、片方なかった', hit:'clock'},
+  shutEyes: {text:'左のお客さんが、目をつぶっていた', hit:'custA'},
+  pot:      {text:'厨房の鍋が、少しういていた'},
+};
+const hitOf = a => { const h = ANOMS[a].hit || a; return h === 'tag' ? 'tag'+S.tagIdx : h; };
+const S = { mode:'title', anom:null, tagIdx:0, stage:0, retries:0, t0:0, running:false, last:null, used:new Set(), practice:false,
+            yaw:0, pitch:-0.06, busy:false, pending:null };
+
+function applyAnomaly(){
+  const a = S.anom;
+  [A,B].forEach(R => {
+    R.tags.forEach((t,k) => { t.rotation.z = (a==='tag' && k===S.tagIdx) ? Math.PI : 0; t.material.map = (a==='hatena' && k===S.tagIdx) ? HATENA_TEX : t.userData.map; });
+    R.extra.visible = a==='extra'; R.custA.visible = true; R.cat2.visible = a==='cat';
+    const m = R.maneki.userData, alt = a==='maneki';
+    m.upR.visible = !alt; m.downL.visible = !alt; m.upL.visible = alt; m.downR.visible = alt;
+    R.maneki.rotation.y = a==='manekiB' ? Math.PI : 0;
+    const L = R.lantern.userData, sad = a==='lantern';
+    L.smile.visible = !sad; L.flatMouth.visible = sad;
+    L.body.material = toon(a==='lanternB' ? '#8fb8f0' : '#ff9d8a');
+    R.sky.material.map = a==='window' ? NIGHT_TEX : SKY_TEX;
+    R.custB.rotation.y = a==='stare' ? faceSeat(3.25, -1.5) : -Math.PI/2;
+    R.shoyu.rotation.z = a==='shoyu' ? Math.PI : 0; R.shoyu.position.y = a==='shoyu' ? 1.07 : 0.99;
+    const c = R.cat.userData, awake = a==='catEyes';
+    c.closed.forEach(e => e.visible = !awake); c.open.forEach(e => e.visible = awake); c.zzz.visible = !awake;
+    R.soup.material.map = a==='naruto' ? SOUP_PLAIN : SOUP_TEX;
+    R.clockEars[0].visible = a!=='clockEar';
+    const u = R.custA.userData, shut = a==='shutEyes';
+    u.eyes.forEach(e => e.visible = !shut); u.shut.forEach(e => e.visible = shut);
+    R.pot.position.y = a==='pot' ? 0.14 : 0;
+  });
+  if (a==='mirror') B.custA.visible = false;
+}
+// 同じ1回の挑戦（その1〜その5）の中では、同じ異変は2回出ない
+function pickAnomaly(){
+  const keys = Object.keys(ANOMS).filter(k => !S.used.has(k) && k !== S.last);
+  const a = Math.random() < 0.22 ? null : keys[Math.floor(Math.random()*keys.length)];
+  if (a) S.used.add(a);
+  S.anom = a; S.last = a; S.tagIdx = Math.floor(Math.random()*6);
+  applyAnomaly();
+}
+function setCalm(){ S.anom = null; applyAnomaly(); }   // 下見：かならず異変なし
+
+/* =========================================================
+   カメラ：最初は正面の1枚絵 → タップで動き出し、その場で見回せる
+   ========================================================= */
+const START = {pos:new THREE.Vector3(0, 1.72, 5.7), fov:21};
+const seatFov = () => camera.aspect < 1 ? 72 : 58;
+const YAW_MAX = 1.12, PITCH_MIN = -0.5, PITCH_MAX = 0.32;
+let fly = null;
+function resetCamera(atSeat){
+  if (atSeat){ camera.position.copy(SEAT); camera.fov = seatFov(); }
+  else { camera.position.copy(START.pos); camera.fov = START.fov; }
+  S.yaw = 0; S.pitch = atSeat ? -0.12 : -0.02; camera.updateProjectionMatrix();
+}
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w/h;
+  if (S.mode !== 'title' && !fly) camera.fov = seatFov();
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize(); resetCamera(false);
+
+/* =========================================================
+   画面の文字
+   ========================================================= */
+const $ = id => document.getElementById(id);
+function toast(big, cls, text, ms=1400){
+  $('toastBig').textContent = big; $('toastBig').className = 'big '+cls; $('toastText').textContent = text||'';
+  $('toast').classList.add('show');
+  return new Promise(r => setTimeout(() => { $('toast').classList.remove('show'); setTimeout(r, 250); }, ms));
+}
+const fmt = ms => { const s = ms/1000, m = Math.floor(s/60); return `${m}:${(s%60).toFixed(1).padStart(4,'0')}`; };
+function updateHud(){ $('stageChip').innerHTML = S.practice ? '<b>下見</b>' : `その <b>${S.stage+1}</b> / 5`; }
+const flash = on => $('flash').classList.toggle('on', on);
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+
+/* =========================================================
+   進行
+   ========================================================= */
+function enterShop(){
+  S.mode = 'fly'; $('caption').style.display = 'none'; $('frame').classList.add('open');
+  S.stage = 0; S.retries = 0; S.practice = true; updateHud(); setCalm();
+  fly = {t:0, from:START.pos.clone(), fov0:START.fov};
+}
+function startLooking(){
+  S.mode = 'look'; fly = null;
+  $('hud').classList.add('show'); $('bottom').classList.add('show'); $('hint').classList.add('show');
+  setTimeout(()=>$('hint').classList.remove('show'), 3200);
+  if (S.practice) $('practice').classList.add('show');
+  else if (!S.running){ S.running = true; S.t0 = performance.now(); }
+}
+// 下見がおわったら、本番の「その1」へ（時間はここから）
+async function endPractice(){
+  if (S.busy) return; S.busy = true; hideConfirm();
+  $('practice').classList.remove('show');
+  S.practice = false; S.stage = 0; S.used.clear();
+  await nextRound();
+  S.running = true; S.t0 = performance.now();
+  S.busy = false;
+}
+async function judge(choiceId){
+  if (S.practice) return endPractice();
+  if (S.busy) return; S.busy = true; hideConfirm();
+  const ok = choiceId === 'none' ? S.anom === null : (S.anom !== null && choiceId === hitOf(S.anom));
+  if (ok){
+    S.stage++;
+    if (S.stage >= 5){ await toast('正解！', 'ok', S.anom ? ANOMS[S.anom].text : '異変はなかった', 1300); return clearGame(); }
+    await toast('正解！', 'ok', S.anom ? ANOMS[S.anom].text : '今回は異変なし', 1300);
+    await nextRound();
+  } else {
+    await toast('ざんねん……', 'ng', (S.anom ? ANOMS[S.anom].text : '今回は、異変はなかった') + '。最初からやり直し。', 2300);
+    S.stage = 0; S.retries++; S.used.clear();   // やり直しは新しい挑戦
+    await nextRound();
+  }
+  S.busy = false;
+}
+async function nextRound(){
+  flash(true); await wait(380);
+  pickAnomaly(); resetCamera(true); updateHud();
+  await wait(120); flash(false); await wait(200);
+  toast(`その${S.stage+1}`, '', '', 700);
+}
+function clearGame(){
+  S.mode = 'clear'; S.running = false;
+  const ms = performance.now() - S.t0;
+  $('hud').classList.remove('show'); $('bottom').classList.remove('show');
+  $('clearTime').textContent = fmt(ms);
+  $('clearSub').textContent = S.retries ? `やり直し ${S.retries}回` : 'やり直しなしで一発クリア！';
+  const text = `『いつもの食堂、どこかヘン』を ${fmt(ms)} でクリア！（${S.retries ? 'やり直し'+S.retries+'回' : 'やり直しなし'}）\n#どこかヘン食堂`;
+  const page = /^https?:/.test(location.href) ? location.href.split(/[?#]/)[0] : '';
+  $('share').href = 'https://x.com/intent/tweet?text=' + encodeURIComponent(text) + (page ? '&url='+encodeURIComponent(page) : '');
+  $('clear').classList.add('show');
+  S.busy = false;
+}
+$('again').addEventListener('click', async () => {
+  $('clear').classList.remove('show'); flash(true); await wait(380);
+  S.stage = 0; S.retries = 0; S.used.clear(); updateHud(); pickAnomaly(); resetCamera(true);
+  flash(false); startLooking(); S.running = true; S.t0 = performance.now();
+});
+$('none').addEventListener('click', () => { if (S.mode==='look') judge('none'); });
+
+/* ---- タップで場所をえらぶ（ドラッグと区別） ---- */
+const marker = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.11, 20), new THREE.MeshBasicMaterial({color:0xff7a70, side:THREE.DoubleSide, depthTest:false, transparent:true}));
+marker.renderOrder = 10; marker.visible = false; scene.add(marker);
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pickAt(cx, cy){
+  ndc.set(cx/innerWidth*2-1, -(cy/innerHeight)*2+1);
+  ray.setFromCamera(ndc, camera);
+  const h = ray.intersectObjects(hits, false)[0];
+  const any = ray.intersectObjects(shop.children, true).find(i => i.object.visible && i.object.material && i.object.material.visible !== false);
+  const pt = (h || any) ? (h || any).point : null;
+  return {id: h ? h.object.userData.hit : 'elsewhere', point: pt};
+}
+function showConfirm(sel){
+  S.pending = sel.id;
+  if (sel.point){ marker.position.copy(sel.point); marker.lookAt(camera.position); marker.visible = true; }
+  $('confirm').classList.add('show');
+}
+function hideConfirm(){ S.pending = null; marker.visible = false; $('confirm').classList.remove('show'); }
+$('ok').addEventListener('click', () => { if (S.pending) judge(S.pending); });
+$('cancel').addEventListener('click', hideConfirm);
+
+/* ---- 見回し（指のドラッグ・マウス） ---- */
+const cv = renderer.domElement;
+let drag = null;
+cv.addEventListener('pointerdown', e => {
+  if (S.mode === 'title'){ enterShop(); return; }
+  drag = {x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, t:performance.now(), id:e.pointerId};
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag || S.mode !== 'look') return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+  const k = 2.2 / Math.max(innerWidth, innerHeight);
+  S.yaw = THREE.MathUtils.clamp(S.yaw + dx*k*1.3, -YAW_MAX, YAW_MAX);
+  S.pitch = THREE.MathUtils.clamp(S.pitch + dy*k, PITCH_MIN, PITCH_MAX);
+});
+cv.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const moved = Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy), dt = performance.now()-drag.t;
+  drag = null;
+  if (S.mode === 'look' && !S.busy && moved < 8 && dt < 500){
+    if (S.practice){ const p = $('practice'); p.animate([{transform:'translateX(-50%) scale(1)'},{transform:'translateX(-50%) scale(1.06)'},{transform:'translateX(-50%) scale(1)'}], 350); }
+    else showConfirm(pickAt(e.clientX, e.clientY));
+  }
+});
+cv.addEventListener('pointercancel', () => drag = null);
+document.getElementById('caption').addEventListener('click', () => { if (S.mode==='title') enterShop(); });
+
+/* =========================================================
+   毎フレーム
+   ========================================================= */
+const clock3 = new THREE.Clock();
+const ease = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+function tick(){
+  const dt = Math.min(clock3.getDelta(), 0.05), now = performance.now()/1000;
+
+  // カメラ
+  if (fly){
+    fly.t = Math.min(1, fly.t + dt/1.8);
+    const e = ease(fly.t);
+    camera.position.lerpVectors(fly.from, SEAT, e);
+    camera.position.y += Math.sin(e*Math.PI)*0.12;
+    camera.fov = fly.fov0 + (seatFov()-fly.fov0)*e; camera.updateProjectionMatrix();
+    S.yaw = Math.sin(e*Math.PI)*0.18; S.pitch = -0.02 - 0.10*e;
+    if (fly.t >= 1){ S.yaw = 0; startLooking(); }
+  }
+  const sway = S.mode==='look' ? Math.sin(now*0.7)*0.004 : 0;
+  camera.rotation.set(S.pitch + sway, S.yaw, 0);
+  if (S.running && S.mode==='look') $('timer').textContent = fmt(performance.now() - S.t0).replace(/\.\d$/, '');
+
+  // 時計（ふつうは右回り。異変のときは左回り）
+  const dir = S.anom==='clock' ? 1 : -1;
+  [A,B].forEach(R => { R.hSec.rotation.z += dir*dt*Math.PI/30*6; R.hMin.rotation.z += dir*dt*Math.PI/30/10; R.hHour.rotation.z += dir*dt*Math.PI/30/120; });
+
+  // ちょうちんがゆらゆら、猫がすやすや、招き猫がおいでおいで
+  [A,B].forEach(R => {
+    R.lantern.rotation.z = Math.sin(now*0.9)*0.04;
+    [R.cat, R.cat2].forEach((c,i) => { c.scale.y = 1 + Math.sin(now*1.6 + i)*0.03; c.userData.zzz.position.y = 0.32 + Math.sin(now*1.2+i)*0.02; c.userData.zzz.lookAt(SEAT); });
+    const m = R.maneki.userData; [m.upR, m.upL].forEach(a => a.rotation.x = -0.15 + Math.sin(now*2.4)*0.18);
+  });
+
+  // 湯気（ふつうは上へ。異変のときは下へ流れて、カウンターに広がる）
+  A.steam.forEach(s => {
+    s.userData.t = (s.userData.t + dt*0.32) % 1;
+    const t = s.userData.t, wob = Math.sin(now*1.6 + s.userData.off)*0.05;
+    if (S.anom==='steam'){
+      const ang = s.userData.off, r = t < 0.3 ? 0.17 : 0.17 + (t-0.3)*0.7;
+      const y = t < 0.3 ? 1.08 - t/0.3*0.13 : 0.95;
+      s.position.set(Math.cos(ang)*r, y, 0.68 + Math.abs(Math.sin(ang))*r*0.8);
+    } else {
+      s.position.set(wob + Math.sin(t*5+s.userData.off)*0.04, 1.08 + t*0.7, 0.68 + wob*0.4);
+    }
+    const sc = 0.05 + t*0.08; s.scale.set(sc, sc, 1); s.quaternion.copy(camera.quaternion);
+    s.material.opacity = Math.sin(t*Math.PI) * 0.7;
+  });
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+setCalm();
+tick();
+window.__game = {S, ANOMS, judge, pickAt, camera, A, B, hits, renderer, hitOf};
+</script>
+<script>
+setTimeout(() => { if (!window.__game) document.getElementById('err').style.cssText='display:block;top:30%'; }, 8000);
+</script>
+</body>
+</html>
